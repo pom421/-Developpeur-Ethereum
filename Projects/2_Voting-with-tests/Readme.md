@@ -2,7 +2,7 @@
 
 ## Périmètre des tests
 
-Nous allons tester les fonctions du contrat, suivant 4 thèmes, répartis chacun dans un describe, pous plus de lisibilité : 
+Nous allons tester les fonctions du contrat suivant 4 thèmes, chacun répartis dans un describe, pous plus de lisibilité : 
 - vérification des getters
 - vérification des fonctionnalités du owner, en dehors des changement de statut
 - vérification des changements de status
