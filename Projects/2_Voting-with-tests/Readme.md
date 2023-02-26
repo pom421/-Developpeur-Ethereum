@@ -3,10 +3,10 @@
 ## Périmètre des tests
 
 Nous allons tester les fonctions du contrat suivant 4 thèmes, chacun répartis dans un describe, pous plus de lisibilité : 
-- vérification des getters
-- vérification des fonctionnalités du owner, en dehors des changement de statut
-- vérification des changements de status
-- vérification des fonctions des voteurs
+1. vérification des getters
+1. vérification des fonctionnalités du owner, en dehors des changement de statut
+1. vérification des changements de status
+1. vérification des fonctions des voteurs
 
 À chaque fois, nous testerons d'abord le cas passant, quand toutes les conditions sont réunies et son émisison d'évènement associé.
 Puis pour nous ferons un cas de test pour chacune des conditions qui déclenchent une erreur et font un revert.
