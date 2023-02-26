@@ -15,7 +15,7 @@ contract Voting is Ownable {
     );
     event ProposalRegistered(uint256 proposalId);
     event Voted(address voter, uint256 proposalId);
-    event WinnerAfterTally(uint256 proposalId, uint count);
+    event WinnerAfterTally(uint256 proposalId, uint256 count);
 
     struct Voter {
         bool isRegistered;
@@ -37,20 +37,22 @@ contract Voting is Ownable {
         VotesTallied
     }
 
-    // The id proposal which win the vote.
-    uint256 public winningProposalId;
-
-    // The current status of the workflow.
-    WorkflowStatus currentStatus;
-
     // Whitelist of voters.
     mapping(address => Voter) public voters;
 
     // List of proposals.
     Proposal[] public proposals;
 
-    // Id to track the index of the last proposal.
-    uint256 private proposalId;
+    // The id proposal winning the vote.
+    uint256 public winningProposalId;
+
+    // The current status of the workflow.
+    WorkflowStatus private currentStatus;
+
+    // Id tracking the index of the last proposal. This is also the actual number of proposals.
+    uint256 public proposalId;
+
+    // Modifiers. ------------------------------------------------------
 
     // Guard to ensure to be in a particular status.
     modifier mustBeInWorkflowStatus(WorkflowStatus _status) {
@@ -62,7 +64,7 @@ contract Voting is Ownable {
     }
 
     // Guard to ensure to be an elector registered in the whitelist.
-    modifier isElector() {
+    modifier isAllowedVoter() {
         require(
             voters[msg.sender].isRegistered == true,
             "The address doesn't belong to the white list."
@@ -79,31 +81,13 @@ contract Voting is Ownable {
         _;
     }
 
-    function addVoter(address _address)
-        external
-        onlyOwner
-        mustBeInWorkflowStatus(WorkflowStatus.RegisteringVoters)
-        notPresentInWhitelist(_address)
-    {
-        voters[_address] = Voter({
-            isRegistered: true,
-            hasVoted: false,
-            votedProposalId: 0
-        });
-
-        emit VoterRegistered(_address);
+    // Guard to avoid address 0.
+    modifier notAddress0() {
+        require(msg.sender != address(0), "The 0 address can't be used.");
+        _;
     }
 
-    function addProposal(string calldata _description)
-        external
-        mustBeInWorkflowStatus(WorkflowStatus.ProposalsRegistrationStarted)
-        isElector
-    {
-        proposals.push(Proposal({description: _description, voteCount: 0}));
-
-        emit ProposalRegistered(++proposalId); // Increment proposal index.
-    }
-
+    // Workflow functions. ----------------------------------------------------
     function changeWorkflowStatus(WorkflowStatus _newStatus) private onlyOwner {
         WorkflowStatus oldStatus = currentStatus;
         currentStatus = _newStatus;
@@ -145,21 +129,51 @@ contract Voting is Ownable {
         tallyVotes();
     }
 
+    // End of workflow functions. ----------------------------------------------------
+
+    function addVoter(address _address)
+        external
+        onlyOwner
+        mustBeInWorkflowStatus(WorkflowStatus.RegisteringVoters)
+        notPresentInWhitelist(_address)
+        notAddress0
+    {
+        voters[_address] = Voter({
+            isRegistered: true,
+            hasVoted: false,
+            votedProposalId: 0
+        });
+
+        emit VoterRegistered(_address);
+    }
+
+    function addProposal(string calldata _description)
+        external
+        mustBeInWorkflowStatus(WorkflowStatus.ProposalsRegistrationStarted)
+        isAllowedVoter
+    {
+        proposals.push(Proposal({description: _description, voteCount: 0}));
+
+        emit ProposalRegistered(++proposalId); // Increment proposal id.
+    }
+
     function voteForProposal(uint256 _id)
         external
         mustBeInWorkflowStatus(WorkflowStatus.VotingSessionStarted)
-        isElector
+        isAllowedVoter
     {
-        require(voters[msg.sender].hasVoted == false, "You have already voted once.");
+        require(
+            voters[msg.sender].hasVoted == false,
+            "You have already voted once."
+        );
 
-        // Change count on proposals.
+        // Increment count on proposals.
         proposals[_id].voteCount++;
 
-        // Set voter as hasVoted.
+        // Update voter informations.
         voters[msg.sender].hasVoted = true;
         voters[msg.sender].votedProposalId = _id;
 
-        // emit event
         emit Voted(msg.sender, _id);
     }
 
@@ -193,6 +207,4 @@ contract Voting is Ownable {
     {
         return winningProposalId;
     }
-
-
 }
