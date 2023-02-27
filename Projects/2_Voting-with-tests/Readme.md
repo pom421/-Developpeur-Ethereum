@@ -81,7 +81,7 @@ Puis pour nous ferons un cas de test pour chacune des conditions qui déclenchen
 
     - [X] should be able to start registering proposal phase & emit WorkflowStatusChange
     - [X] should not be able to start registering proposal phase if not owner => "Ownable: caller is not the owner."
-    - [ ] should not be able to start registering proposal phase if not in registering voters phase => "Registering proposals cant be started now"
+    - [X] should not be able to start registering proposal phase if not in registering voters phase => "Registering proposals cant be started now"
 
 - function endProposalsRegistering() external onlyOwner {
 	- require(workflowStatus == WorkflowStatus.ProposalsRegistrationStarted, "Registering proposals havent started yet");
@@ -89,24 +89,24 @@ Puis pour nous ferons un cas de test pour chacune des conditions qui déclenchen
     - emit WorkflowStatusChange(WorkflowStatus.ProposalsRegistrationStarted, WorkflowStatus.ProposalsRegistrationEnded);
 
     - [X] should be able to end registering proposal phase & emit WorkflowStatusChange
-    - [ ] should not be able to end registering proposal phase if not owner => "Ownable: caller is not the owner."
-    - [ ] should not be able to end registering proposal phase if not in start registering proposal phase => "Registering proposals havent started yet"
+    - [X] should not be able to end registering proposal phase if not owner => "Ownable: caller is not the owner."
+    - [X] should not be able to end registering proposal phase if not in start registering proposal phase => "Registering proposals havent started yet"
 
 - function startVotingSession() external onlyOwner {
     - require(workflowStatus == WorkflowStatus.ProposalsRegistrationEnded, "Registering proposals phase is not finished");
 
     - emit WorkflowStatusChange(WorkflowStatus.ProposalsRegistrationEnded, WorkflowStatus.VotingSessionStarted);
 
-    - [ ] should be able to start voting session & emit WorkflowStatusChange event
-    - [ ] should not be able to start voting phase if not owner => "Ownable: caller is not the owner."
-    - [ ] should not be able to start voting phase if not in end registering proposal phase => "Registering proposals phase is not finished"
+    - [X] should be able to start voting session & emit WorkflowStatusChange event
+    - [X] should not be able to start voting phase if not owner => "Ownable: caller is not the owner."
+    - [X] should not be able to start voting phase if not in end registering proposal phase => "Registering proposals phase is not finished"
 
 - function endVotingSession() external onlyOwner {
     - require(workflowStatus == WorkflowStatus.VotingSessionStarted, "Voting session havent started yet");
 
     - emit WorkflowStatusChange(WorkflowStatus.VotingSessionStarted, WorkflowStatus.VotingSessionEnded);
 
-    - [ ] should be able to end voting phase & emit WorkflowStatusChange event
-    - [ ] should not be able to end voting phase if not owner => "Ownable: caller is not the owner."
-    - [ ] should not be able to end voting phase if not in start voting phase => "Ownable: caller is not the owner."
+    - [X] should be able to end voting phase & emit WorkflowStatusChange event
+    - [X] should not be able to end voting phase if not owner => "Ownable: caller is not the owner."
+    - [X] should not be able to end voting phase if not in start voting phase => "Voting session havent started yet"
 

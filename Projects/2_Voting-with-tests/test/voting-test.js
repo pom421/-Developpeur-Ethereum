@@ -298,7 +298,7 @@ contract("Voting", (accounts) => {
     });
   });
 
-  describe.only("Check workflow status", () => {
+  describe("Check workflow status", () => {
     it("should be able to start registering proposal phase & emit WorkflowStatusChange", async () => {
       const result = await votingInstance.startProposalsRegistering({
         from: owner,
@@ -351,6 +351,104 @@ contract("Voting", (accounts) => {
         ),
         newStatus: new BN(Voting.WorkflowStatus.ProposalsRegistrationEnded),
       });
+    });
+
+    it("should not be able to end registering proposal phase if not owner", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+
+      await expectRevert(
+        votingInstance.endProposalsRegistering({
+          from: firstVoter,
+        }),
+        "Ownable: caller is not the owner"
+      );
+    });
+
+    it("should not be able to end registering proposal phase if not in start registering proposal phase", async () => {
+      await expectRevert(
+        votingInstance.endProposalsRegistering({
+          from: owner,
+        }),
+        "Registering proposals havent started yet"
+      );
+    });
+
+    it("should be able to start voting session & emit WorkflowStatusChange", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.endProposalsRegistering({ from: owner });
+
+      const result = await votingInstance.startVotingSession({ from: owner });
+
+      expect(await votingInstance.workflowStatus.call()).to.be.bignumber.equal(
+        new BN(Voting.WorkflowStatus.VotingSessionStarted)
+      );
+
+      expectEvent(result, "WorkflowStatusChange", {
+        previousStatus: new BN(
+          Voting.WorkflowStatus.ProposalsRegistrationEnded
+        ),
+        newStatus: new BN(Voting.WorkflowStatus.VotingSessionStarted),
+      });
+    });
+
+    it("should not be able to start voting phase if not owner", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.endProposalsRegistering({ from: owner });
+
+      await expectRevert(
+        votingInstance.startVotingSession({
+          from: firstVoter,
+        }),
+        "Ownable: caller is not the owner"
+      );
+    });
+
+    it("should not be able to start voting phase if not in end registering proposal phase", async () => {
+      await expectRevert(
+        votingInstance.startVotingSession({
+          from: owner,
+        }),
+        "Registering proposals phase is not finished"
+      );
+    });
+
+    it("should be able to end voting phase & emit WorkflowStatusChange event", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.endProposalsRegistering({ from: owner });
+      await votingInstance.startVotingSession({ from: owner });
+
+      const result = await votingInstance.endVotingSession({ from: owner });
+
+      expect(await votingInstance.workflowStatus.call()).to.be.bignumber.equal(
+        new BN(Voting.WorkflowStatus.VotingSessionEnded)
+      );
+
+      expectEvent(result, "WorkflowStatusChange", {
+        previousStatus: new BN(Voting.WorkflowStatus.VotingSessionStarted),
+        newStatus: new BN(Voting.WorkflowStatus.VotingSessionEnded),
+      });
+    });
+
+    it("should not be able to end voting phase if not owner", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.endProposalsRegistering({ from: owner });
+      await votingInstance.startVotingSession({ from: owner });
+
+      await expectRevert(
+        votingInstance.endVotingSession({
+          from: firstVoter,
+        }),
+        "Ownable: caller is not the owner"
+      );
+    });
+
+    it("should not be able to end voting phase if not in start voting phase", async () => {
+      await expectRevert(
+        votingInstance.endVotingSession({
+          from: owner,
+        }),
+        "Voting session havent started yet"
+      );
     });
   });
 });
