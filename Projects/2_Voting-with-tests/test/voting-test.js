@@ -6,76 +6,351 @@ const Voting = artifacts.require("../Voting.sol");
 
 contract("Voting", (accounts) => {
   let votingInstance;
-
-  before(async () => {
-    // runs once before the first test in this block
-    console.log("accounts", accounts);
-    // votingInstance = await Voting.deployed();
-  });
+  const owner = accounts[0];
+  const firstVoter = accounts[1];
+  const secondVoter = accounts[2];
+  const notVoter = accounts[3];
 
   beforeEach(async () => {
-    // runs before each test in this block
+    // We create a new instance of Voting for each tests.
     votingInstance = await Voting.new();
   });
 
-  it("should be in default status.", async () => {
-    // const votingInstance = await Voting.deployed();
-    // const votingInstance = await Voting.new(); => crée une nouvelle instance avec un state reset
+  describe("Check getters", () => {
+    beforeEach(async () => {
+      // In this context, we add 2 voters, starts the proposal phase and add a proposal.
+      await votingInstance.addVoter(firstVoter);
+      await votingInstance.addVoter(secondVoter);
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.addProposal("Proposal 1", { from: firstVoter });
+    });
 
-    console.log("status1", Voting.WorkflowStatus.RegisteringVoters);
-    console.log("status2", Voting.WorkflowStatus.ProposalsRegistrationStarted);
+    it("should get voter if user in whitelist", async () => {
+      const voter = await votingInstance.getVoter(firstVoter, {
+        from: firstVoter,
+      });
 
-    console.log(
-      "votingInstance.workflowStatus",
-      await votingInstance.workflowStatus.call()
-    );
+      expect(voter.isRegistered).to.be.true;
+      expect(voter.hasVoted).to.be.false;
+    });
 
-    // expect(await votingInstance.workflowStatus.call()).to.be.bignumber.equal(Voting.WorkflowStatus.RegisteringVoters);
+    it("should throw an error on get voter if user not in whitelist", async () => {
+      await expectRevert(
+        votingInstance.getVoter(firstVoter, {
+          from: notVoter, // Unauthorized user.
+        }),
+        "You're not a voter"
+      );
+    });
 
-    await votingInstance.startProposalsRegistering({ from: accounts[0] });
+    it("should get proposal for user in whitelist", async () => {
+      const proposal = await votingInstance.getOneProposal(1, {
+        from: secondVoter,
+      });
 
-    console.log(
-      "votingInstance.workflowStatus",
-      await votingInstance.workflowStatus.call()
-    );
+      expect(proposal.description).to.be.equal("Proposal 1");
+      expect(proposal.voteCount).to.be.bignumber.equal(new BN(0));
+    });
 
-    expect(await votingInstance.workflowStatus.call()).to.be.bignumber.equal(
-      Voting.WorkflowStatus.ProposalsRegistrationStarted
-    );
-
-    // const addVoter = await votingInstance.addVoter(accounts[1]);
-
-    // // Set value of 89
-    // await votingInstance.store(89, { from: accounts[0] });
-
-    // // Get stored value
-    // const storedData = await votingInstance.retrieve.call();
-
-    // assert.equal(storedData, 89, "The value 89 was not stored.");
-
-    // expect(storedData).to.be.bignumber.equal("89");
-    // expect(storedData).to.be.bignumber.equal(new BN(89));
+    it("should throw an error on get proposal for user not in whitelist", async () => {
+      await expectRevert(
+        votingInstance.getOneProposal(1, {
+          from: notVoter,
+        }),
+        "You're not a voter"
+      );
+    });
   });
 
-  // it("should store the value 13.", async () => {
-  //   // Set value of 13
-  //   const result = await votingInstance.store(13, { from: accounts[0] });
+  describe("Check owner features (except workflow status)", () => {
+    it("should be able to add voter and emit VoterRegistered", async () => {
+      const result = await votingInstance.addVoter(firstVoter, {
+        from: owner,
+      });
 
-  //   await expectEvent(result, "Stored_Event", {
-  //     _data: new BN(13),
-  //   });
+      expectEvent(result, "VoterRegistered", {
+        voterAddress: firstVoter,
+      });
 
-  //   // Get stored value
-  //   const storedData = await votingInstance.retrieve.call();
+      const voter = await votingInstance.getVoter(firstVoter, {
+        from: firstVoter,
+      });
 
-  //   expect(storedData).to.be.bignumber.equal("13");
-  // });
+      expect(voter.isRegistered).to.be.true;
+    });
 
-  // it("should revert if the value is not 13.", async () => {
-  //   // Expect an error because the value is not > 10.
-  //   await expectRevert(
-  //     votingInstance.store(8, { from: accounts[0] }),
-  //     "num must be greater than 10"
-  //   );
-  // });
+    it("should not be able to add voter if not owner", async () => {
+      await expectRevert(
+        votingInstance.addVoter(firstVoter, {
+          from: firstVoter, // Unauthorized user.
+        }),
+        "Ownable: caller is not the owner."
+      );
+    });
+
+    it("should not be able to add voter if not workflow status not in registering phase", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+
+      await expectRevert(
+        votingInstance.addVoter(firstVoter, {
+          from: owner,
+        }),
+        "Voters registration is not open yet"
+      );
+    });
+
+    it("should not be able to add voter if voter already in whitelist", async () => {
+      await votingInstance.addVoter(firstVoter, {
+        from: owner,
+      });
+
+      await expectRevert(
+        votingInstance.addVoter(firstVoter, {
+          from: owner,
+        }),
+        "Already registered"
+      );
+    });
+
+    it("should be able to tally vote & emit WorkflowStatusChange event", async () => {
+      await votingInstance.addVoter(firstVoter);
+      await votingInstance.addVoter(secondVoter);
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.addProposal("Proposal 1", { from: firstVoter });
+      await votingInstance.addProposal("Proposal 2", { from: firstVoter });
+      await votingInstance.endProposalsRegistering({ from: owner });
+      await votingInstance.startVotingSession({ from: owner });
+      await votingInstance.setVote(1, { from: firstVoter });
+      await votingInstance.setVote(1, { from: secondVoter });
+      await votingInstance.endVotingSession({ from: owner });
+
+      const result = await votingInstance.tallyVotes({ from: owner });
+
+      expectEvent(result, "WorkflowStatusChange", {
+        previousStatus: new BN(Voting.WorkflowStatus.VotingSessionEnded),
+        newStatus: new BN(Voting.WorkflowStatus.VotesTallied),
+      });
+
+      expect(await votingInstance.workflowStatus.call()).to.be.bignumber.equal(
+        new BN(Voting.WorkflowStatus.VotesTallied)
+      );
+
+      expect(
+        await votingInstance.winningProposalID.call()
+      ).to.be.bignumber.equal(new BN(1));
+
+      const proposal1 = await votingInstance.getOneProposal(1, {
+        from: firstVoter,
+      });
+
+      const proposal2 = await votingInstance.getOneProposal(2, {
+        from: firstVoter,
+      });
+
+      expect(proposal1.voteCount).to.be.bignumber.equal(new BN(2));
+      expect(proposal2.voteCount).to.be.bignumber.equal(new BN(0));
+    });
+
+    it("should not be able to tally vote if not owner", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.endProposalsRegistering({ from: owner });
+      await votingInstance.startVotingSession({ from: owner });
+      await votingInstance.endVotingSession({ from: owner });
+
+      await expectRevert(
+        votingInstance.tallyVotes({
+          from: firstVoter, // Unauthorized user.
+        }),
+        "Ownable: caller is not the owner."
+      );
+    });
+
+    it("should not be able to tally vote if not in end voting phase", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.endProposalsRegistering({ from: owner });
+      await votingInstance.startVotingSession({ from: owner });
+
+      await expectRevert(
+        votingInstance.tallyVotes({
+          from: owner,
+        }),
+        "Current status is not voting session ended"
+      );
+    });
+  });
+
+  describe("Check voters features", () => {
+    it("should be able to add proposal if user in whitelist & emit ProposalRegistered event", async () => {
+      await votingInstance.addVoter(firstVoter);
+      await votingInstance.startProposalsRegistering({ from: owner });
+
+      const result = await votingInstance.addProposal("Proposal 1", {
+        from: firstVoter,
+      });
+
+      expectEvent(result, "ProposalRegistered", {
+        proposalId: new BN(1),
+      });
+    });
+
+    it("should not be able to add proposal if user not in whitelist", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+
+      await expectRevert(
+        votingInstance.addProposal("Proposal 1", {
+          from: notVoter,
+        }),
+        "You're not a voter"
+      );
+    });
+
+    it("should not be able to add proposal if workflow status not in proposal registration phase", async () => {
+      await votingInstance.addVoter(firstVoter);
+
+      await expectRevert(
+        votingInstance.addProposal("Proposal 1", {
+          from: firstVoter,
+        }),
+        "Proposals are not allowed yet"
+      );
+    });
+
+    it("should not be able to add proposal if proposal is empty", async () => {
+      await votingInstance.addVoter(firstVoter);
+      await votingInstance.startProposalsRegistering({ from: owner });
+
+      await expectRevert(
+        votingInstance.addProposal("", {
+          from: firstVoter,
+        }),
+        "Vous ne pouvez pas ne rien proposer"
+      );
+    });
+
+    it("should be able to vote & emit Voted event", async () => {
+      await votingInstance.addVoter(firstVoter);
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.addProposal("Proposal 1", { from: firstVoter });
+      await votingInstance.endProposalsRegistering({ from: owner });
+      await votingInstance.startVotingSession({ from: owner });
+
+      const result = await votingInstance.setVote(1, { from: firstVoter });
+
+      expectEvent(result, "Voted", {
+        voter: firstVoter,
+        proposalId: new BN(1),
+      });
+    });
+
+    it("should not be able to vote if user not in whitelist", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.endProposalsRegistering({ from: owner });
+      await votingInstance.startVotingSession({ from: owner });
+
+      await expectRevert(
+        votingInstance.setVote(1, {
+          from: notVoter,
+        }),
+        "You're not a voter"
+      );
+    });
+
+    it("should not be able to vote if not in start voting phase", async () => {
+      await votingInstance.addVoter(firstVoter);
+
+      await expectRevert(
+        votingInstance.setVote(1, {
+          from: firstVoter,
+        }),
+        "Voting session havent started yet"
+      );
+    });
+
+    it("should not be able to vote if voter has already voted", async () => {
+      await votingInstance.addVoter(firstVoter);
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.addProposal("Proposal 1", { from: firstVoter });
+      await votingInstance.endProposalsRegistering({ from: owner });
+      await votingInstance.startVotingSession({ from: owner });
+      await votingInstance.setVote(1, { from: firstVoter });
+
+      await expectRevert(
+        votingInstance.setVote(1, {
+          from: firstVoter,
+        }),
+        "You have already voted"
+      );
+    });
+
+    it("should not be able to vote if for an unfound proposal", async () => {
+      await votingInstance.addVoter(firstVoter);
+      await votingInstance.startProposalsRegistering({ from: owner });
+      await votingInstance.addProposal("Proposal 1", { from: firstVoter });
+      await votingInstance.endProposalsRegistering({ from: owner });
+      await votingInstance.startVotingSession({ from: owner });
+
+      await expectRevert(
+        votingInstance.setVote(2, {
+          from: firstVoter,
+        }),
+        "Proposal not found"
+      );
+    });
+  });
+
+  describe.only("Check workflow status", () => {
+    it("should be able to start registering proposal phase & emit WorkflowStatusChange", async () => {
+      const result = await votingInstance.startProposalsRegistering({
+        from: owner,
+      });
+
+      expect(await votingInstance.workflowStatus.call()).to.be.bignumber.equal(
+        new BN(Voting.WorkflowStatus.ProposalsRegistrationStarted)
+      );
+
+      expectEvent(result, "WorkflowStatusChange", {
+        previousStatus: new BN(Voting.WorkflowStatus.RegisteringVoters),
+        newStatus: new BN(Voting.WorkflowStatus.ProposalsRegistrationStarted),
+      });
+    });
+
+    it("should not be able to start registering proposal phase if not owner", async () => {
+      await expectRevert(
+        votingInstance.startProposalsRegistering({
+          from: firstVoter,
+        }),
+        "Ownable: caller is not the owner"
+      );
+    });
+
+    it("should not be able to start registering proposal phase if not in registering voters phase", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+
+      await expectRevert(
+        votingInstance.startProposalsRegistering({
+          from: owner,
+        }),
+        "Registering proposals cant be started now"
+      );
+    });
+
+    it("should be able to end registering proposal phase & emit WorkflowStatusChange", async () => {
+      await votingInstance.startProposalsRegistering({ from: owner });
+
+      const result = await votingInstance.endProposalsRegistering({
+        from: owner,
+      });
+
+      expect(await votingInstance.workflowStatus.call()).to.be.bignumber.equal(
+        new BN(Voting.WorkflowStatus.ProposalsRegistrationEnded)
+      );
+
+      expectEvent(result, "WorkflowStatusChange", {
+        previousStatus: new BN(
+          Voting.WorkflowStatus.ProposalsRegistrationStarted
+        ),
+        newStatus: new BN(Voting.WorkflowStatus.ProposalsRegistrationEnded),
+      });
+    });
+  });
 });
