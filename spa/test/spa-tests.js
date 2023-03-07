@@ -32,7 +32,7 @@ contract("SpaContract", (accounts) => {
       expect(animalsCount).to.be.bignumber.equal(new BN(2));
     });
 
-    it.only("should support removing an animal & the last replace the removed one.", async () => {
+    it("should support removing an animal & the last replace the removed one.", async () => {
       await spaInstance.addAnimal("chien", "80", "2", { from: accounts[0] });
       await spaInstance.addAnimal("chat", "40", "4", { from: accounts[0] });
       await spaInstance.addAnimal("tortue", "40", "4", { from: accounts[0] });
@@ -54,7 +54,7 @@ contract("SpaContract", (accounts) => {
       expect(animal.race).to.be.equal("poisson");
     });
 
-    it.only("should remove the last animal and not swap with another.", async () => {
+    it("should remove the last animal and not swap with another.", async () => {
       await spaInstance.addAnimal("chien", "80", "2", { from: accounts[0] });
       await spaInstance.addAnimal("chat", "40", "4", { from: accounts[0] });
       await spaInstance.addAnimal("tortue", "40", "4", { from: accounts[0] });
