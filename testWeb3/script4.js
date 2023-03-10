@@ -3,11 +3,12 @@ async function main() {
   require("dotenv").config();
   const HDWalletProvider = require("@truffle/hdwallet-provider");
 
-  provider = new HDWalletProvider(
+  const provider = new HDWalletProvider(
     `${process.env.MNEMONIC}`,
     `https://goerli.infura.io/v3/${process.env.INFURA_ID}`
   );
-  web3 = new Web3(provider);
+
+  const web3 = new Web3(provider);
 
   var abi = [
     {

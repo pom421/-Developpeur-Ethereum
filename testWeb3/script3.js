@@ -2,11 +2,12 @@ var Web3 = require("web3");
 require("dotenv").config();
 const HDWalletProvider = require("@truffle/hdwallet-provider");
 
-provider = new HDWalletProvider(
+const provider = new HDWalletProvider(
   `${process.env.MNEMONIC}`,
   `https://ropsten.infura.io/v3/${process.env.INFURA_ID}`
 );
-web3 = new Web3(provider);
+
+const web3 = new Web3(provider);
 
 const tx = {
   from: "0x13bc18faeC7f39Fb5eE428545dBba611267AEAa4",
